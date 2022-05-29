@@ -1266,6 +1266,8 @@ analyze_gravity_list() {
     gravity_permissions=$(ls -lhd "${PIHOLE_GRAVITY_DB_FILE}")
     log_write "${COL_GREEN}${gravity_permissions}${COL_NC}"
 
+    database_integrity_check "$PIHOLE_GRAVITY_DB_FILE"
+
     show_db_entries "Info table" "SELECT property,value FROM info" "20 40"
     gravity_updated_raw="$(pihole-FTL sqlite3 "${PIHOLE_GRAVITY_DB_FILE}" "SELECT value FROM info where property = 'updated'")"
     gravity_updated="$(date -d @"${gravity_updated_raw}")"
@@ -1284,6 +1286,47 @@ analyze_gravity_list() {
 
     log_write ""
     IFS="$OLD_IFS"
+}
+
+analyze_ftl_db() {
+    echo_current_diagnostic "Pi-hole FTL Query Database"
+
+    local ftl_permissions
+    ftl_permissions=$(ls -lhd "${PIHOLE_FTL_DB_FILE}")
+    log_write "${COL_GREEN}${ftl_permissions}${COL_NC}"
+
+    database_integrity_check "$PIHOLE_FTL_DB_FILE"
+}
+
+database_integrity_check(){
+    local result
+    local database="${1}"
+
+    log_write "${INFO} Checking integrity of ${database} ... (this can take several minutes)"
+    result="$(pihole-FTL "${database}" "PRAGMA integrity_check" 2>&1)"
+    if [[ ${result} = "ok" ]]; then
+      log_write "${TICK} Integrity of ${database} intact"
+
+
+      log_write "${INFO} Checking foreign key constraints of ${database} ... (this can take several minutes)"
+      unset result
+      result="$(pihole-FTL sqlite3 "${database}" -cmd ".headers on" -cmd ".mode column" "PRAGMA foreign_key_check" 2>&1)"
+      if [[ -z ${result} ]]; then
+        log_write "${TICK} No foreign key errors in ${database}"
+      else
+        log_write "${CROSS} ${COL_RED}Foreign key errors in ${database} found.${COL_NC}"
+        while IFS= read -r line ; do
+            log_write "    $line"
+        done <<< "$result"
+      fi
+
+    else
+      log_write "${CROSS} ${COL_RED}Integrity errors in ${database} found.\n${COL_NC}"
+      while IFS= read -r line ; do
+        log_write "    $line"
+      done <<< "$result"
+    fi
+
 }
 
 obfuscated_pihole_log() {
@@ -1431,7 +1474,7 @@ upload_to_tricorder() {
         if [[ "${WEBCALL}" ]] && [[ ! "${AUTOMATED}" ]]; then
             :
         else
-            log_write "${CROSS}  ${COL_RED}There was an error uploading your debug log.${COL_NC}"
+            log_write "${CROSS} ${COL_RED}There was an error uploading your debug log.${COL_NC}"
             log_write "   * Please try again or contact the Pi-hole team for assistance."
         fi
     fi
@@ -1460,6 +1503,7 @@ process_status
 ftl_full_status
 parse_setup_vars
 check_x_headers
+analyze_ftl_db
 analyze_gravity_list
 show_groups
 show_domainlist
