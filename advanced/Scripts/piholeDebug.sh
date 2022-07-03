@@ -1303,9 +1303,9 @@ database_integrity_check(){
     local database="${1}"
 
     log_write "${INFO} Checking integrity of ${database} ... (this can take several minutes)"
-    result="$(pihole-FTL "${database}" "PRAGMA integrity_check" 2>&1)"
+    result="$(pihole-FTL "${database}" "PRAGMA quick_check" 2>&1)"
     if [[ ${result} = "ok" ]]; then
-      log_write "${TICK} Integrity of ${database} intact"
+      log_write "${TICK} Integrity of ${database} intact (quick check)"
 
 
       log_write "${INFO} Checking foreign key constraints of ${database} ... (this can take several minutes)"
