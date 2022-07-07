@@ -1259,14 +1259,16 @@ show_messages() {
     show_FTL_db_entries "Pi-hole diagnosis messages" "SELECT count (message) as count, datetime(max(timestamp),'unixepoch','localtime') as 'last timestamp', type, message, blob1, blob2, blob3, blob4, blob5 FROM message GROUP BY type, message, blob1, blob2, blob3, blob4, blob5;" "6 19 20 60 20 20 20 20 20"
 }
 
+database_permissions() {
+    local permissions
+    permissions=$(ls -lhd "${1}")
+    log_write "${COL_GREEN}${permissions}${COL_NC}"
+}
+
 analyze_gravity_list() {
     echo_current_diagnostic "Gravity Database"
 
-    local gravity_permissions
-    gravity_permissions=$(ls -lhd "${PIHOLE_GRAVITY_DB_FILE}")
-    log_write "${COL_GREEN}${gravity_permissions}${COL_NC}"
-
-    database_integrity_check "$PIHOLE_GRAVITY_DB_FILE"
+    database_permissions "${PIHOLE_GRAVITY_DB_FILE}"
 
     show_db_entries "Info table" "SELECT property,value FROM info" "20 40"
     gravity_updated_raw="$(pihole-FTL sqlite3 "${PIHOLE_GRAVITY_DB_FILE}" "SELECT value FROM info where property = 'updated'")"
@@ -1290,12 +1292,7 @@ analyze_gravity_list() {
 
 analyze_ftl_db() {
     echo_current_diagnostic "Pi-hole FTL Query Database"
-
-    local ftl_permissions
-    ftl_permissions=$(ls -lhd "${PIHOLE_FTL_DB_FILE}")
-    log_write "${COL_GREEN}${ftl_permissions}${COL_NC}"
-
-    database_integrity_check "$PIHOLE_FTL_DB_FILE"
+    database_permissions "${PIHOLE_FTL_DB_FILE}"
 }
 
 database_integrity_check(){
@@ -1303,9 +1300,9 @@ database_integrity_check(){
     local database="${1}"
 
     log_write "${INFO} Checking integrity of ${database} ... (this can take several minutes)"
-    result="$(pihole-FTL "${database}" "PRAGMA quick_check" 2>&1)"
+    result="$(pihole-FTL "${database}" "PRAGMA integrity_check" 2>&1)"
     if [[ ${result} = "ok" ]]; then
-      log_write "${TICK} Integrity of ${database} intact (quick check)"
+      log_write "${TICK} Integrity of ${database} intact"
 
 
       log_write "${INFO} Checking foreign key constraints of ${database} ... (this can take several minutes)"
@@ -1328,6 +1325,17 @@ database_integrity_check(){
     fi
 
 }
+
+check_database_integrity() {
+    echo_current_diagnostic "Gravity Database"
+    database_permissions "${PIHOLE_GRAVITY_DB_FILE}"
+    database_integrity_check "${PIHOLE_GRAVITY_DB_FILE}"
+
+    echo_current_diagnostic "Pi-hole FTL Query Database"
+    database_permissions "${PIHOLE_FTL_DB_FILE}"
+    database_integrity_check "${PIHOLE_FTL_DB_FILE}"
+}
+
 
 obfuscated_pihole_log() {
   local pihole_log=("$@")
@@ -1481,6 +1489,16 @@ upload_to_tricorder() {
     # Finally, show where the log file is no matter the outcome of the function so users can look at it
     log_write "   * A local copy of the debug log can be found at: ${COL_CYAN}${PIHOLE_DEBUG_LOG}${COL_NC}\\n"
 }
+
+# if users want to check database integrity
+if [[ "${CHECK_DATABASE}" = true ]]; then
+    make_temporary_log
+    initialize_debug
+    check_database_integrity
+    copy_to_debug_log
+    upload_to_tricorder
+    exit 0
+fi
 
 # Run through all the functions we made
 make_temporary_log

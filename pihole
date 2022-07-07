@@ -36,9 +36,9 @@ listFunc() {
 }
 
 debugFunc() {
-  local automated
-  local web
-
+    local automated
+    local web
+    local check_database_integrity
   # Pull off the `debug` leaving passed call augmentation flags in $1
   shift
   if [[ "$@" == *"-a"* ]]; then
@@ -47,8 +47,11 @@ debugFunc() {
   if [[ "$@" == *"-w"* ]]; then
     web="true"
   fi
+  if [[ "$@" == *"-c"* ]] || [[ "$@" == *"--check_database"* ]]; then
+    check_database_integrity="true"
+  fi
 
-  AUTOMATED=${automated:-} WEBCALL=${web:-} "${PI_HOLE_SCRIPT_DIR}"/piholeDebug.sh
+  AUTOMATED=${automated:-} WEBCALL=${web:-} CHECK_DATABASE=${check_database_integrity:-} "${PI_HOLE_SCRIPT_DIR}"/piholeDebug.sh
   exit 0
 }
 
