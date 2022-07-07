@@ -456,6 +456,7 @@ Whitelist/Blacklist Options:
 
 Debugging Options:
   -d, debug           Start a debugging session
+                        Use '-c' or '--check-database' to perform a Pi-hole database integrity check
                         Add '-a' to automatically upload the log to tricorder.pi-hole.net
   -f, flush           Flush the Pi-hole log
   -r, reconfigure     Reconfigure or Repair Pi-hole subsystems
